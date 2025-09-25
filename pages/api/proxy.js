@@ -73,10 +73,9 @@ export default async function handler(req, res) {
     if (contentType.includes("text/html")) {
       let html = await response.text();
 
+      const proxyBaseTag = `${proxyBase}${encodeURIComponent(baseUrl.origin + "/")}`;
+
       // 注入 <base>
-      const proxyBaseTag = `${proxyBase}${encodeURIComponent(
-        baseUrl.origin + "/"
-      )}`;
       if (/<head[^>]*>/i.test(html)) {
         html = html.replace(/<head[^>]*>/i, (match) => {
           return `${match}\n<base href="${proxyBaseTag}">`;
@@ -85,53 +84,96 @@ export default async function handler(req, res) {
         html = `<head><base href="${proxyBaseTag}"></head>\n` + html;
       }
 
-      // 替换 href / src
+      // 替换静态 href / src
       html = html.replace(
         /(href|src)=["']([^"']+)["']/gi,
         (match, attr, link) => {
-          if (link.startsWith("http://") || link.startsWith("https://")) {
+          if (/^(https?:)?\/\//i.test(link)) {
+            if (link.startsWith("//")) link = baseUrl.protocol + link;
             return `${attr}="${proxyBase}${encodeURIComponent(link)}"`;
-          } else if (link.startsWith("//")) {
-            return `${attr}="${proxyBase}${encodeURIComponent(
-              baseUrl.protocol + link
-            )}"`;
           } else if (link.startsWith("/")) {
-            return `${attr}="${proxyBase}${encodeURIComponent(
-              baseUrl.origin + link
-            )}"`;
-          } else if (link.startsWith("javascript:") || link.startsWith("#")) {
+            return `${attr}="${proxyBase}${encodeURIComponent(baseUrl.origin + link)}"`;
+          } else if (/^(javascript:|#)/i.test(link)) {
             return match;
           } else {
-            return `${attr}="${proxyBase}${encodeURIComponent(
-              new URL(link, baseUrl).href
-            )}"`;
+            return `${attr}="${proxyBase}${encodeURIComponent(new URL(link, baseUrl).href)}"`;
           }
         }
       );
 
-      // 替换 <form action="...">
+      // 替换静态 form action
       html = html.replace(
         /<form([^>]*?)action=["']([^"']+)["']([^>]*)>/gi,
         (match, before, action, after) => {
-          let newAction;
-          if (action.startsWith("http://") || action.startsWith("https://")) {
+          let newAction = action;
+          if (/^(https?:)?\/\//i.test(action)) {
+            if (action.startsWith("//")) action = baseUrl.protocol + action;
             newAction = `${proxyBase}${encodeURIComponent(action)}`;
-          } else if (action.startsWith("//")) {
-            newAction = `${proxyBase}${encodeURIComponent(
-              baseUrl.protocol + action
-            )}`;
           } else if (action.startsWith("/")) {
-            newAction = `${proxyBase}${encodeURIComponent(
-              baseUrl.origin + action
-            )}`;
+            newAction = `${proxyBase}${encodeURIComponent(baseUrl.origin + action)}`;
           } else {
-            newAction = `${proxyBase}${encodeURIComponent(
-              new URL(action, baseUrl).href
-            )}`;
+            newAction = `${proxyBase}${encodeURIComponent(new URL(action, baseUrl).href)}`;
           }
           return `<form${before}action="${newAction}"${after}>`;
         }
       );
+
+      // ===== 注入全局 JS Hook 动态 URL =====
+      const hookScript = `
+      <script>
+        (function(){
+          const proxyBase = '${proxyBase}';
+          function proxifyUrl(url) {
+            try {
+              if (!url || url.startsWith('javascript:') || url.startsWith('#')) return url;
+              const u = new URL(url, location.href);
+              return proxyBase + encodeURIComponent(u.href);
+            } catch(e) { return url; }
+          }
+
+          // Hook location
+          const originalAssign = window.location.assign;
+          window.location.assign = function(url){ return originalAssign.call(this, proxifyUrl(url)); };
+          const originalReplace = window.location.replace;
+          window.location.replace = function(url){ return originalReplace.call(this, proxifyUrl(url)); };
+          Object.defineProperty(window.location, 'href', {
+            set: function(url){ originalAssign.call(window.location, proxifyUrl(url)); }
+          });
+
+          // Hook pushState / replaceState
+          const _push = history.pushState;
+          history.pushState = function(s, t, url){ return _push.call(this, s, t, proxifyUrl(url)); };
+          const _replace = history.replaceState;
+          history.replaceState = function(s, t, url){ return _replace.call(this, s, t, proxifyUrl(url)); };
+
+          // 替换 a 标签 href / form action
+          document.addEventListener('DOMContentLoaded', ()=>{
+            document.querySelectorAll('a[href]').forEach(a=>{
+              a.href = proxifyUrl(a.href);
+            });
+            document.querySelectorAll('form[action]').forEach(f=>{
+              f.action = proxifyUrl(f.action);
+            });
+          });
+
+          // Hook fetch
+          const _fetch = window.fetch;
+          window.fetch = function(input, init){
+            if(typeof input === 'string') input = proxifyUrl(input);
+            else if(input instanceof Request) input = new Request(proxifyUrl(input.url), input);
+            return _fetch.call(this, input, init);
+          };
+
+          // Hook XMLHttpRequest open
+          const _open = XMLHttpRequest.prototype.open;
+          XMLHttpRequest.prototype.open = function(method, url, ...rest){
+            return _open.call(this, method, proxifyUrl(url), ...rest);
+          };
+        })();
+      </script>
+      `;
+
+      html = html.replace(/<\/body>/i, hookScript + "</body>");
 
       res.setHeader("Content-Type", "text/html; charset=utf-8");
       res.send(html);
@@ -141,20 +183,15 @@ export default async function handler(req, res) {
       let css = await response.text();
       css = css.replace(/url\(([^)]+)\)/gi, (match, rawUrl) => {
         let cleanUrl = rawUrl.trim().replace(/^['"]|['"]$/g, "");
-        if (cleanUrl.startsWith("http://") || cleanUrl.startsWith("https://")) {
+        if (/^(https?:)?\/\//i.test(cleanUrl)) {
+          if (cleanUrl.startsWith("//")) cleanUrl = baseUrl.protocol + cleanUrl;
           return `url(${proxyBase}${encodeURIComponent(cleanUrl)})`;
-        } else if (cleanUrl.startsWith("//")) {
-          return `url(${proxyBase}${encodeURIComponent(
-            baseUrl.protocol + cleanUrl
-          )})`;
         } else if (cleanUrl.startsWith("/")) {
           return `url(${proxyBase}${encodeURIComponent(baseUrl.origin + cleanUrl)})`;
         } else if (cleanUrl.startsWith("data:")) {
           return match;
         } else {
-          return `url(${proxyBase}${encodeURIComponent(
-            new URL(cleanUrl, baseUrl).href
-          )})`;
+          return `url(${proxyBase}${encodeURIComponent(new URL(cleanUrl, baseUrl).href)})`;
         }
       });
       res.setHeader("Content-Type", "text/css; charset=utf-8");
