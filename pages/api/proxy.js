@@ -33,6 +33,18 @@ export default async function handler(req, res) {
     if (contentType.includes('text/html')) {
       let html = await response.text();
 
+      // 注入 <base> 标签，确保相对路径也能正确代理
+      const proxyBaseTag = `${proxyBase}${encodeURIComponent(baseUrl.origin + '/')}`;
+      if (/<head[^>]*>/i.test(html)) {
+        html = html.replace(/<head[^>]*>/i, match => {
+          return `${match}\n<base href="${proxyBaseTag}">`;
+        });
+      } else {
+        // 如果页面没有 <head>，就在开头加一个
+        html = `<head><base href="${proxyBaseTag}"></head>\n` + html;
+      }
+
+      // 替换绝对/相对链接（兜底方案，确保所有跳转都走代理）
       html = html.replace(
         /(href|src)=["']([^"']+)["']/gi,
         (match, attr, link) => {
@@ -86,12 +98,12 @@ export default async function handler(req, res) {
     ) {
       let js = await response.text();
 
-      // 匹配 fetch("...") / fetch('...')
+      // fetch("...")
       js = js.replace(/fetch\((['"])(.+?)\1\)/gi, (match, quote, link) => {
         return `fetch(${quote}${proxyBase}${encodeURIComponent(new URL(link, baseUrl).href)}${quote})`;
       });
 
-      // 匹配 XMLHttpRequest.open("GET", "...")
+      // XMLHttpRequest.open("GET", "...")
       js = js.replace(
         /open\((['"])(GET|POST|PUT|DELETE|HEAD|OPTIONS)\1\s*,\s*(['"])(.+?)\3/gi,
         (match, q1, method, q2, link) => {
@@ -99,7 +111,7 @@ export default async function handler(req, res) {
         }
       );
 
-      // 匹配 $.ajax({ url: "..." })
+      // $.ajax({ url: "..." })
       js = js.replace(/url:\s*(['"])(.+?)\1/gi, (match, quote, link) => {
         return `url: ${quote}${proxyBase}${encodeURIComponent(new URL(link, baseUrl).href)}${quote}`;
       });
