@@ -32,7 +32,7 @@ export default function Home() {
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="例如：https://dxfg.netlify.app/"
+          placeholder=""
           style={styles.input}
         />
         <button onClick={generateLink} style={styles.button}>加速</button>
