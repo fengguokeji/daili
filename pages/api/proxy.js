@@ -71,7 +71,7 @@ export default async function handler(req, res) {
         html = `<head><base href="${proxyBaseTag}"></head>\n` + html;
       }
 
-      // 替换资源路径
+      // 替换资源路径 (href / src)
       html = html.replace(
         /(href|src)=["']([^"']+)["']/gi,
         (match, attr, link) => {
@@ -89,12 +89,36 @@ export default async function handler(req, res) {
             link.startsWith("javascript:") ||
             link.startsWith("#")
           ) {
-            return match;
+            return match; // 保持不变
           } else {
             return `${attr}="${proxyBase}${encodeURIComponent(
               new URL(link, baseUrl).href
             )}"`;
           }
+        }
+      );
+
+      // 替换 <form action="...">
+      html = html.replace(
+        /<form([^>]*?)action=["']([^"']+)["']([^>]*)>/gi,
+        (match, before, action, after) => {
+          let newAction;
+          if (action.startsWith("http://") || action.startsWith("https://")) {
+            newAction = `${proxyBase}${encodeURIComponent(action)}`;
+          } else if (action.startsWith("//")) {
+            newAction = `${proxyBase}${encodeURIComponent(
+              baseUrl.protocol + action
+            )}`;
+          } else if (action.startsWith("/")) {
+            newAction = `${proxyBase}${encodeURIComponent(
+              baseUrl.origin + action
+            )}`;
+          } else {
+            newAction = `${proxyBase}${encodeURIComponent(
+              new URL(action, baseUrl).href
+            )}`;
+          }
+          return `<form${before}action="${newAction}"${after}>`;
         }
       );
 
