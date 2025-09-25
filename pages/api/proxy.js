@@ -2,7 +2,7 @@
 
 export const config = {
   api: {
-    bodyParser: false, // 保留原始请求体，方便透传
+    bodyParser: false, // 保留原始请求体
   },
 };
 
@@ -29,11 +29,11 @@ export default async function handler(req, res) {
   }
 
   try {
-    // ===== 处理请求头 =====
+    // ===== 请求头 =====
     const headers = { ...req.headers };
     delete headers.host;
 
-    // ===== 处理请求体 =====
+    // ===== 请求体 =====
     const bodyChunks = [];
     for await (const chunk of req) {
       bodyChunks.push(chunk);
@@ -43,17 +43,31 @@ export default async function handler(req, res) {
         ? undefined
         : Buffer.concat(bodyChunks);
 
+    const proxyBase = "/api/proxy?url=";
+
     // ===== 发起代理请求 =====
     const response = await fetch(targetUrl, {
       method: req.method,
       headers,
       body,
-      redirect: "manual",
+      redirect: "manual", // 保留 301/302 手动处理
     });
+
+    // ===== 处理 301/302 跳转 =====
+    if (response.status >= 300 && response.status < 400) {
+      const location = response.headers.get("location");
+      if (location) {
+        const redirectUrl = `${proxyBase}${encodeURIComponent(
+          new URL(location, targetUrl).href
+        )}`;
+        res.writeHead(302, { Location: redirectUrl });
+        res.end();
+        return;
+      }
+    }
 
     const contentType = response.headers.get("content-type") || "";
     const baseUrl = new URL(targetUrl);
-    const proxyBase = "/api/proxy?url=";
 
     // ===== 处理 HTML =====
     if (contentType.includes("text/html")) {
@@ -71,7 +85,7 @@ export default async function handler(req, res) {
         html = `<head><base href="${proxyBaseTag}"></head>\n` + html;
       }
 
-      // 替换资源路径 (href / src)
+      // 替换 href / src
       html = html.replace(
         /(href|src)=["']([^"']+)["']/gi,
         (match, attr, link) => {
@@ -85,11 +99,8 @@ export default async function handler(req, res) {
             return `${attr}="${proxyBase}${encodeURIComponent(
               baseUrl.origin + link
             )}"`;
-          } else if (
-            link.startsWith("javascript:") ||
-            link.startsWith("#")
-          ) {
-            return match; // 保持不变
+          } else if (link.startsWith("javascript:") || link.startsWith("#")) {
+            return match;
           } else {
             return `${attr}="${proxyBase}${encodeURIComponent(
               new URL(link, baseUrl).href
@@ -128,10 +139,8 @@ export default async function handler(req, res) {
       // ===== 处理 CSS =====
     } else if (contentType.includes("text/css")) {
       let css = await response.text();
-
       css = css.replace(/url\(([^)]+)\)/gi, (match, rawUrl) => {
         let cleanUrl = rawUrl.trim().replace(/^['"]|['"]$/g, "");
-
         if (cleanUrl.startsWith("http://") || cleanUrl.startsWith("https://")) {
           return `url(${proxyBase}${encodeURIComponent(cleanUrl)})`;
         } else if (cleanUrl.startsWith("//")) {
@@ -139,9 +148,7 @@ export default async function handler(req, res) {
             baseUrl.protocol + cleanUrl
           )})`;
         } else if (cleanUrl.startsWith("/")) {
-          return `url(${proxyBase}${encodeURIComponent(
-            baseUrl.origin + cleanUrl
-          )})`;
+          return `url(${proxyBase}${encodeURIComponent(baseUrl.origin + cleanUrl)})`;
         } else if (cleanUrl.startsWith("data:")) {
           return match;
         } else {
@@ -150,7 +157,6 @@ export default async function handler(req, res) {
           )})`;
         }
       });
-
       res.setHeader("Content-Type", "text/css; charset=utf-8");
       res.send(css);
 
@@ -160,8 +166,6 @@ export default async function handler(req, res) {
       contentType.includes("text/javascript")
     ) {
       let js = await response.text();
-
-      // fetch("...")
       js = js.replace(
         /fetch\((['"])(.+?)\1\)/gi,
         (match, quote, link) => {
@@ -170,8 +174,6 @@ export default async function handler(req, res) {
           )}${quote})`;
         }
       );
-
-      // XMLHttpRequest.open("GET", "...")
       js = js.replace(
         /open\((['"])(GET|POST|PUT|DELETE|HEAD|OPTIONS)\1\s*,\s*(['"])(.+?)\3/gi,
         (match, q1, method, q2, link) => {
@@ -180,14 +182,11 @@ export default async function handler(req, res) {
           )}${q2}`;
         }
       );
-
-      // $.ajax({ url: "..." })
       js = js.replace(/url:\s*(['"])(.+?)\1/gi, (match, quote, link) => {
         return `url: ${quote}${proxyBase}${encodeURIComponent(
           new URL(link, baseUrl).href
         )}${quote}`;
       });
-
       res.setHeader("Content-Type", "application/javascript; charset=utf-8");
       res.send(js);
 
@@ -199,7 +198,6 @@ export default async function handler(req, res) {
           res.setHeader(key, value);
         }
       });
-
       const reader = response.body.getReader();
       while (true) {
         const { done, value } = await reader.read();
