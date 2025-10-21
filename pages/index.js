@@ -76,7 +76,7 @@ export default function Home() {
         </p>
 
         <img
-          src="https://images.unsplash.com/photo-1558981403-c5f9891b6d2d"
+          src="https://mrmad.com.tw/wp-content/uploads/2025/10/apple-f1-exclusive-tv-deal-free-us.jpg"
           alt="F1 Race"
           style={styles.image}
         />
