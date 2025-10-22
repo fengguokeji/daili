@@ -157,14 +157,12 @@ export default function Home() {
     <div style={productStyles.body}>
       <div style={productStyles.container}>
         <h1 style={productStyles.title}>
-          新款 iPhone Air、iPad Pro、14 英寸 MacBook Pro 和 Apple Vision Pro 现已正式发售
+          新款 iPhone Air、iPad Pro、14 英寸 MacBook Pro 和 Apple Vision Pro
         </h1>
         
         <p style={productStyles.update}>更新 2025 年 10 月 22 日</p>
         
-        <div style={productStyles.section}>
-          <h2 style={productStyles.h2}>选购新品</h2>
-          
+        <div style={productStyles.section}>          
           <h3 style={productStyles.h3}>iPhone Air</h3>
           <p style={productStyles.p}>
             iPhone Air 采用极致轻薄的设计，比所有前代机型更加坚固耐用，具备专业性能表现、先进的 4800 万像素融合式主摄、创新 Center Stage 前置摄像头和满足全天所需的出色电池续航。以 iPhone 史上最薄身姿带来专业级性能表现。极致纤薄的钛金属设计优雅轻盈而又极为坚固，依托创新内部架构带来最新 iPhone 体验。iPhone Air 背部由超瓷晶面板保护，硬度远胜各种智能手机玻璃面板或玻璃陶瓷面板；正面使用超瓷晶面板 2 打造，抗刮划能力提升至上代机型的 3 倍，使得 iPhone Air 比此前所有 iPhone 机型都更加耐用。iPhone Air 还配备了绚丽的 6.5 英寸超视网膜 XDR 显示屏，ProMotion 自适应刷新率最高可达 120Hz。强大的 4800 万像素融合式主摄图像可实现相当于四颗镜头的卓越画质，包括一颗 2 倍光学品质长焦镜头。Center Stage 前置摄像头采用创新正方形传感器，具有宽视角，可在拍摄集体自拍时自动从纵向模式旋转为横向模式；用户还可使用同步双拍功能，同时使用前后摄像头拍摄视频。iPhone Air 已得到中国移动、中国电信和中国联通支持，采用 eSIM 设计，在节省内部空间的同时，提供比传统实体 SIM 卡更高的灵活性、安全性和无缝网络连接体验，在出国旅行途中尤为方便。iPhone Air 搭载了 iPhone 迄今最多的 Apple 设计芯片，包括强大的 A19 Pro、N1 和 C1X，使其登顶史上能效最高的 iPhone。结合重新设计的内部架构和软件优化，iPhone Air 在提供专业级性能的同时，仍具备满足全天所需的卓越电池续航。提供四种可选颜色：天蓝色、浅金色、云白色和深空黑色。
