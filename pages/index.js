@@ -169,33 +169,41 @@ export default function Home() {
           <p style={productStyles.p}>
             iPhone Air 采用极致轻薄的设计，比所有前代机型更加坚固耐用，具备专业性能表现、先进的 4800 万像素融合式主摄、创新 Center Stage 前置摄像头和满足全天所需的出色电池续航。以 iPhone 史上最薄身姿带来专业级性能表现。极致纤薄的钛金属设计优雅轻盈而又极为坚固，依托创新内部架构带来最新 iPhone 体验。iPhone Air 背部由超瓷晶面板保护，硬度远胜各种智能手机玻璃面板或玻璃陶瓷面板；正面使用超瓷晶面板 2 打造，抗刮划能力提升至上代机型的 3 倍，使得 iPhone Air 比此前所有 iPhone 机型都更加耐用。iPhone Air 还配备了绚丽的 6.5 英寸超视网膜 XDR 显示屏，ProMotion 自适应刷新率最高可达 120Hz。强大的 4800 万像素融合式主摄图像可实现相当于四颗镜头的卓越画质，包括一颗 2 倍光学品质长焦镜头。Center Stage 前置摄像头采用创新正方形传感器，具有宽视角，可在拍摄集体自拍时自动从纵向模式旋转为横向模式；用户还可使用同步双拍功能，同时使用前后摄像头拍摄视频。iPhone Air 已得到中国移动、中国电信和中国联通支持，采用 eSIM 设计，在节省内部空间的同时，提供比传统实体 SIM 卡更高的灵活性、安全性和无缝网络连接体验，在出国旅行途中尤为方便。iPhone Air 搭载了 iPhone 迄今最多的 Apple 设计芯片，包括强大的 A19 Pro、N1 和 C1X，使其登顶史上能效最高的 iPhone。结合重新设计的内部架构和软件优化，iPhone Air 在提供专业级性能的同时，仍具备满足全天所需的卓越电池续航。提供四种可选颜色：天蓝色、浅金色、云白色和深空黑色。
           </p>
-          <div style={productStyles.imagePlaceholder}>
-            <p>新款 iPhone Air 天蓝色钛金属设计概念图</p>
-          </div>
+          <img
+            src="https://www.apple.com.cn/newsroom/images/2025/10/new-iphone-air-ipad-pro-14-inch-macbook-pro-and-apple-vision-pro-now-available/article/Apple-iPhone-Air-color-lineup_big.jpg.large_2x.jpg"
+            alt="新款 iPhone Air 天蓝色钛金属设计概念图"
+            style={productStyles.productImage}
+          />
           
           <h3 style={productStyles.h3}>iPad Pro</h3>
           <p style={productStyles.p}>
             搭载 M5 芯片的 iPad Pro 解锁了最为先进的 iPad 体验，在超便携设计中纳入澎湃性能。结合 iPadOS 26，为寻求利用 iPad 完成更多任务的用户提供了前所未见的功能与表现。新款 iPad Pro 解锁了迄今最先进的 iPad 体验，在极致轻薄的设计中纳入了澎湃性能。新一代图形处理器的每颗核心都搭载了一枚神经网络加速器，使新款 iPad Pro 的 AI 性能相比上代机型提升最高 3.5 倍，相比搭载 M1 芯片的 iPad Pro 提升最高 5.6 倍。新款 iPad Pro 还搭载了速度更快的图形处理器、性能提升的神经网络引擎和加大的统一内存带宽，并首次配备了 C1X 调制解调器和 Apple 设计的全新无线网络芯片 N1。iPad Pro 提供 11 英寸和 13 英寸两种尺寸，均配备绚丽的超精视网膜 XDR 显示屏和新进的双层串联 OLED 技术，通过 iPadOS 提供生动使用体验。妙控键盘与 Apple Pencil 等先进配件为 iPad 解锁更多用途。
           </p>
-          <div style={productStyles.imagePlaceholder}>
-            <p>iPad Pro 图像占位符</p>
-          </div>
+          <img
+            src="https://www.apple.com.cn/newsroom/images/2025/10/new-iphone-air-ipad-pro-14-inch-macbook-pro-and-apple-vision-pro-now-available/article/Apple-iPad-Pro-lineup_big.jpg.large_2x.jpg"
+            alt="iPad Pro 图像"
+            style={productStyles.productImage}
+          />
           
           <h3 style={productStyles.h3}>14 英寸 MacBook Pro</h3>
           <p style={productStyles.p}>
             新款 14 英寸 MacBook Pro 由 M5 芯片强势驱动，整体性能实现跃升，AI 任务大幅提速，存储速度更快，电池续航最长可达 24 小时，并通过设计优美的 macOS Tahoe 带来生动使用体验。搭载 M5 芯片的新款 14 英寸 MacBook Pro 速度更快、功能更强、AI 性能大幅跃升。新一代图形处理器的每颗核心都搭载了一枚神经网络加速器，使新款 MacBook Pro 的 AI 性能相比上代机型提升最高 3.5 倍，相比搭载 M1 芯片的 13 英寸 MacBook Pro 提升最高 6 倍。图形性能相比上代机型提升最多 1.6 倍，相比搭载 M1 芯片的 13 英寸 MacBook Pro 提升最高 2.7 倍。此外，M5 芯片还集成了速度更快的中央处理器、性能提升的神经网络引擎和加大的统一内存带宽，从启动 app 到运行设备端大语言模型，速度都显著提升。依托最新存储技术，搭载 M5 芯片的新款 14 英寸 MacBook Pro 固态硬盘在运行导入 RAW 图像文件、导出大型视频等任务时，速度比上代机型快最多 2 倍。结合绚丽的 Liquid 视网膜 XDR 显示屏（提供纳米纹理玻璃面板选项）、1200 万像素 Center Stage 摄像头、六扬声器音响系统、丰富的端口和出类拔萃的 macOS Tahoe，造就了 MacBook Pro 的卓越体验。
           </p>
-          <div style={productStyles.imagePlaceholder}>
-            <p>14 英寸 MacBook Pro 图像占位符</p>
-          </div>
+          <img
+            src="https://www.apple.com.cn/newsroom/images/2025/10/new-iphone-air-ipad-pro-14-inch-macbook-pro-and-apple-vision-pro-now-available/article/Apple-MacBook-Pro-14-in-silver_big.jpg.large_2x.jpg"
+            alt="14 英寸 MacBook Pro 图像"
+            style={productStyles.productImage}
+          />
           
           <h3 style={productStyles.h3}>Apple Vision Pro</h3>
           <p style={productStyles.p}>
             在 M5 芯片加持下，Apple Vision Pro 性能大幅跃升，显示渲染更出色，电池续航亦有提升，且配备新款双圈编织头带，为用户提供舒适佩戴体验。搭载 M5 芯片的 Apple Vision Pro 性能大幅跃升，显示渲染更出色，AI 工作流实现提速，电池续航亦有提升。Vision Pro 现配备带软垫的双圈编织头带，佩戴感更加舒适，并通过 visionOS 26 解锁更多创新空间体验。此外，用户还可畅享 App Store 中的上百万款 app 和数千款游戏，Apple TV app 中的数百部 3D 电影，以及全新 Apple 沉浸影片和系列视频。双圈编织头带可单独购买。升级版 Apple Vision Pro 搭载强劲的 M5 芯片，配备舒适的双圈编织头带，通过 visionOS 26 为用户提供创新功能，以及全新空间 app 和 Apple 沉浸内容。
           </p>
-          <div style={productStyles.imagePlaceholder}>
-            <p>Apple Vision Pro 图像占位符</p>
-          </div>
+          <img
+            src="https://www.apple.com.cn/newsroom/images/2025/10/new-iphone-air-ipad-pro-14-inch-macbook-pro-and-apple-vision-pro-now-available/article/Apple-Vision-Pro-Dual-Knit-Band_big.jpg.large_2x.jpg"
+            alt="Apple Vision Pro 图像"
+            style={productStyles.productImage}
+          />
         </div>
 
         <div style={productStyles.buttonContainer}>
@@ -324,15 +332,12 @@ const productStyles = {
     letterSpacing: '-0.01em',
     lineHeight: 1.2,
   },
-  imagePlaceholder: {
-    textAlign: 'center',
-    margin: '2rem 0',
-    backgroundColor: '#f5f5f7',
+  productImage: {
+    width: '100%',
+    height: 'auto',
     borderRadius: '18px',
-    padding: 'clamp(1rem, 10vw, 4rem) 2rem',
-    color: '#86868b',
-    fontSize: 'clamp(0.875rem, 2vw, 1rem)',
-    lineHeight: 1.4,
+    margin: '2rem 0',
+    display: 'block',
   },
   section: {
     marginBottom: '3rem',
