@@ -54,6 +54,10 @@ export default function Home() {
     setCurrentPage('products');
   };
 
+  const handleBackPage = () => {
+    setCurrentPage('f1');
+  };
+
   if (currentPage === 'f1') {
     return (
       <div style={styles.body}>
@@ -134,9 +138,11 @@ export default function Home() {
             则不受此次协议影响，仍将持续在该平台上线播出。
           </p>
 
-          <button onClick={handleNextPage} style={styles.nextButton}>
-            下一页
-          </button>
+          <div style={styles.buttonContainer}>
+            <button onClick={handleNextPage} style={styles.nextButton}>
+              下一页
+            </button>
+          </div>
 
           <footer style={styles.footer}>
             © 2025 Apple Inc. 版权所有。  
@@ -191,6 +197,12 @@ export default function Home() {
             <p>Apple Vision Pro 图像占位符</p>
           </div>
         </div>
+
+        <div style={productStyles.buttonContainer}>
+          <button onClick={handleBackPage} style={productStyles.backButton}>
+            返回上一页
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -233,16 +245,20 @@ const styles = {
     fontSize: '17px',
     marginBottom: '15px',
   },
+  buttonContainer: {
+    textAlign: 'center',
+    margin: '40px 0',
+  },
   nextButton: {
     backgroundColor: '#0071e3',
     color: 'white',
     border: 'none',
-    padding: '10px 20px',
+    padding: '8px 16px',
     borderRadius: '6px',
-    fontSize: '16px',
+    fontSize: '14px',
+    fontWeight: 500,
     cursor: 'pointer',
-    margin: '20px 0',
-    display: 'block',
+    display: 'inline-block',
   },
   footer: {
     borderTop: '1px solid #ddd',
@@ -320,5 +336,20 @@ const productStyles = {
   },
   section: {
     marginBottom: '3rem',
+  },
+  buttonContainer: {
+    textAlign: 'center',
+    margin: '40px 0',
+  },
+  backButton: {
+    backgroundColor: '#0071e3',
+    color: 'white',
+    border: 'none',
+    padding: '8px 16px',
+    borderRadius: '6px',
+    fontSize: '14px',
+    fontWeight: 500,
+    cursor: 'pointer',
+    display: 'inline-block',
   },
 };
