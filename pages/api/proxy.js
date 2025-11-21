@@ -29,9 +29,21 @@ export default async function handler(req, res) {
   }
 
   try {
-    // ===== 请求头 =====
-    const headers = { ...req.headers };
-    delete headers.host;
+    // ===== 请求头处理 (关键修复) =====
+    // 不直接复制所有 header，而是过滤掉可能导致 fetch failed 的 header
+    const headers = {};
+    const blockedHeaders = ['host', 'connection', 'content-length', 'transfer-encoding', 'keep-alive'];
+    
+    Object.entries(req.headers).forEach(([key, value]) => {
+      if (!blockedHeaders.includes(key.toLowerCase())) {
+        headers[key] = value;
+      }
+    });
+
+    // 强制设置 User-Agent (如果是 Cloudflare，有时候空 UA 会被拦)
+    if (!headers['user-agent']) {
+      headers['user-agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+    }
 
     // ===== 请求体 =====
     const bodyChunks = [];
@@ -46,11 +58,16 @@ export default async function handler(req, res) {
     const proxyBase = "/api/proxy?url=";
 
     // ===== 发起代理请求 =====
+    // 增加 catch 捕获具体的网络错误
     const response = await fetch(targetUrl, {
       method: req.method,
       headers,
       body,
-      redirect: "manual", // 保留 301/302 手动处理
+      redirect: "manual",
+      // 某些 Node 版本需要这个配置来防止 Keep-Alive 错误
+      keepalive: false, 
+    }).catch(err => {
+      throw new Error(`连接目标服务器失败: ${err.cause ? err.cause.code : err.message}`);
     });
 
     // ===== 处理 301/302 跳转 =====
@@ -60,7 +77,7 @@ export default async function handler(req, res) {
         const redirectUrl = `${proxyBase}${encodeURIComponent(
           new URL(location, targetUrl).href
         )}`;
-        res.writeHead(302, { Location: redirectUrl });
+        res.writeHead(response.status, { Location: redirectUrl });
         res.end();
         return;
       }
@@ -96,7 +113,9 @@ export default async function handler(req, res) {
           } else if (/^(javascript:|#)/i.test(link)) {
             return match;
           } else {
-            return `${attr}="${proxyBase}${encodeURIComponent(new URL(link, baseUrl).href)}"`;
+            try {
+                return `${attr}="${proxyBase}${encodeURIComponent(new URL(link, baseUrl).href)}"`;
+            } catch (e) { return match; }
           }
         }
       );
@@ -112,7 +131,9 @@ export default async function handler(req, res) {
           } else if (action.startsWith("/")) {
             newAction = `${proxyBase}${encodeURIComponent(baseUrl.origin + action)}`;
           } else {
-            newAction = `${proxyBase}${encodeURIComponent(new URL(action, baseUrl).href)}`;
+            try {
+                newAction = `${proxyBase}${encodeURIComponent(new URL(action, baseUrl).href)}`;
+            } catch(e) { return match; }
           }
           return `<form${before}action="${newAction}"${after}>`;
         }
@@ -191,7 +212,9 @@ export default async function handler(req, res) {
         } else if (cleanUrl.startsWith("data:")) {
           return match;
         } else {
-          return `url(${proxyBase}${encodeURIComponent(new URL(cleanUrl, baseUrl).href)})`;
+          try {
+              return `url(${proxyBase}${encodeURIComponent(new URL(cleanUrl, baseUrl).href)})`;
+          } catch(e) { return match; }
         }
       });
       res.setHeader("Content-Type", "text/css; charset=utf-8");
@@ -206,23 +229,24 @@ export default async function handler(req, res) {
       js = js.replace(
         /fetch\((['"])(.+?)\1\)/gi,
         (match, quote, link) => {
-          return `fetch(${quote}${proxyBase}${encodeURIComponent(
-            new URL(link, baseUrl).href
-          )}${quote})`;
+            try {
+               return `fetch(${quote}${proxyBase}${encodeURIComponent(new URL(link, baseUrl).href)}${quote})`;
+            } catch(e) { return match; }
         }
       );
+      // 增加 try-catch 防止 URL 解析失败导致 JS 报错
       js = js.replace(
         /open\((['"])(GET|POST|PUT|DELETE|HEAD|OPTIONS)\1\s*,\s*(['"])(.+?)\3/gi,
         (match, q1, method, q2, link) => {
-          return `open(${q1}${method}${q1}, ${q2}${proxyBase}${encodeURIComponent(
-            new URL(link, baseUrl).href
-          )}${q2}`;
+            try {
+                return `open(${q1}${method}${q1}, ${q2}${proxyBase}${encodeURIComponent(new URL(link, baseUrl).href)}${q2}`;
+            } catch(e) { return match; }
         }
       );
       js = js.replace(/url:\s*(['"])(.+?)\1/gi, (match, quote, link) => {
-        return `url: ${quote}${proxyBase}${encodeURIComponent(
-          new URL(link, baseUrl).href
-        )}${quote}`;
+          try {
+            return `url: ${quote}${proxyBase}${encodeURIComponent(new URL(link, baseUrl).href)}${quote}`;
+          } catch(e) { return match; }
       });
       res.setHeader("Content-Type", "application/javascript; charset=utf-8");
       res.send(js);
@@ -244,6 +268,8 @@ export default async function handler(req, res) {
       res.end();
     }
   } catch (err) {
-    res.status(502).send(`请求错误：${err.message}`);
+    console.error("Proxy Error:", err);
+    // 返回详细的错误代码，方便排查
+    res.status(502).send(`请求错误：${err.message} (Cause: ${err.cause ? err.cause.code : 'Unknown'})`);
   }
 }
