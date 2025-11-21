@@ -1,17 +1,17 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  // 这是一个跨平台通用的重写规则
-  // Vercel 和 Netlify (通过 Next.js Runtime) 都能读取并执行
+  // 使用 fallback 策略，确保 /api/proxy 等存在的路由优先被处理
+  // 只有当路径不存在时，才重写到首页
   async rewrites() {
-    return [
-      {
-        // 将所有未匹配的路径重定向到首页
-        // 注意：API 路由 /api/proxy 优先级最高，不会受此影响
-        source: '/:path*',
-        destination: '/',
-      },
-    ];
+    return {
+      fallback: [
+        {
+          source: '/:path*',
+          destination: '/',
+        },
+      ],
+    };
   },
 };
 
