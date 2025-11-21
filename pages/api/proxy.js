@@ -1,11 +1,8 @@
-import { URL } from 'url';
+// pages/api/proxy.js
 
 export const config = {
   api: {
-    // 关闭 Next.js 默认的 Body 解析，直接透传 Stream，防止大文件上传撑爆内存
-    bodyParser: false,
-    // 解除响应大小限制
-    responseLimit: false,
+    bodyParser: false, // 保留原始请求体
   },
 };
 
@@ -13,207 +10,231 @@ export default async function handler(req, res) {
   const { url, ...restQuery } = req.query;
 
   if (!url) {
-    return res.status(400).send("Missing 'url' query parameter");
+    res.status(400).send("缺少 url 参数");
+    return;
   }
 
-  // 1. 构建目标 URL
-  let targetUrlStr = decodeURIComponent(url);
-  // 自动补全协议
-  if (!/^https?:\/\//i.test(targetUrlStr)) {
-    targetUrlStr = "http://" + targetUrlStr;
+  let targetUrl = decodeURIComponent(url);
+
+  // 补全协议
+  if (!/^https?:\/\//i.test(targetUrl)) {
+    targetUrl = "http://" + targetUrl;
   }
 
-  // 简单防止 SSRF (访问内网)
-  try {
-    const u = new URL(targetUrlStr);
-    if (['localhost', '127.0.0.1', '::1'].includes(u.hostname)) {
-      return res.status(403).send("Forbidden: Localhost access denied");
-    }
-  } catch (e) {
-    return res.status(400).send("Invalid URL format");
-  }
-
-  // 拼接剩余的 Query 参数 (例如 ?id=1&page=2)
+  // 拼接额外的 query 参数
   const searchParams = new URLSearchParams(restQuery);
   if ([...searchParams].length > 0) {
-    const sep = targetUrlStr.includes("?") ? "&" : "?";
-    targetUrlStr += sep + searchParams.toString();
+    const sep = targetUrl.includes("?") ? "&" : "?";
+    targetUrl += sep + searchParams.toString();
   }
 
-  // 定义代理的基础路径，方便后续使用
-  const proxyBase = "/api/proxy?url=";
-
   try {
-    const targetUrlObj = new URL(targetUrlStr);
+    // ===== 请求头 =====
+    const headers = { ...req.headers };
+    delete headers.host;
 
-    // 2. 准备请求头
-    const headers = new Headers();
-    // 复制原有 Header，但剔除 Host (由 fetch 自动设置) 和一些可能导致问题的 Header
-    Object.entries(req.headers).forEach(([key, value]) => {
-      if (!['host'].includes(key)) {
-        headers.set(key, value);
-      }
-    });
+    // ===== 请求体 =====
+    const bodyChunks = [];
+    for await (const chunk of req) {
+      bodyChunks.push(chunk);
+    }
+    const body =
+      ["GET", "HEAD"].includes(req.method) || bodyChunks.length === 0
+        ? undefined
+        : Buffer.concat(bodyChunks);
 
-    // 3. 准备请求体 (流式透传)
-    // 如果是 GET/HEAD，body 必须为 undefined
-    // 如果是 POST/PUT，直接使用 req (IncomingMessage) 作为 stream
-    const requestBody = ['GET', 'HEAD'].includes(req.method) ? undefined : req;
+    const proxyBase = "/api/proxy?url=";
 
-    // 4. 发起请求
-    const response = await fetch(targetUrlStr, {
+    // ===== 发起代理请求 =====
+    const response = await fetch(targetUrl, {
       method: req.method,
-      headers: headers,
-      body: requestBody,
-      redirect: "manual", // 手动处理跳转
+      headers,
+      body,
+      redirect: "manual", // 保留 301/302 手动处理
     });
 
-    // 5. 处理响应头
-    // 转发 Set-Cookie，但需要去除 Domain 属性，否则浏览器会拒绝写入
-    response.headers.forEach((val, key) => {
-      if (key === 'set-cookie') {
-        // 粗暴移除 Domain 和 Secure (如果本地不是https)，让 Cookie 种在当前域下
-        const newCookie = val.replace(/Domain=[^;]+;?/gi, '').replace(/Secure;?/gi, '');
-        res.appendHeader('Set-Cookie', newCookie);
-      } else if (!['content-encoding', 'content-length'].includes(key)) {
-        // 剔除编码和长度头，因为我们可能会修改内容
-        res.setHeader(key, val);
-      }
-    });
-
-    // 6. 处理 3XX 跳转
+    // ===== 处理 301/302 跳转 =====
     if (response.status >= 300 && response.status < 400) {
       const location = response.headers.get("location");
       if (location) {
-        // 将相对路径转为绝对路径，再包裹代理
-        const absoluteLocation = new URL(location, targetUrlStr).href;
-        const redirectUrl = `${proxyBase}${encodeURIComponent(absoluteLocation)}`;
-        res.writeHead(response.status, { Location: redirectUrl });
-        return res.end();
+        const redirectUrl = `${proxyBase}${encodeURIComponent(
+          new URL(location, targetUrl).href
+        )}`;
+        res.writeHead(302, { Location: redirectUrl });
+        res.end();
+        return;
       }
     }
 
     const contentType = response.headers.get("content-type") || "";
+    const baseUrl = new URL(targetUrl);
 
-    // ============================================================
-    // 策略 A: HTML 处理 (注入 <base> 和 Hook 脚本)
-    // ============================================================
+    // ===== 处理 HTML =====
     if (contentType.includes("text/html")) {
       let html = await response.text();
-      const origin = targetUrlObj.origin;
-      const proxyOrigin = `${proxyBase}${encodeURIComponent(origin + "/")}`;
 
-      // 1. 注入 <base href="...">
-      // 这能解决绝大多数 img src, link href, script src 的相对路径问题
+      const proxyBaseTag = `${proxyBase}${encodeURIComponent(baseUrl.origin + "/")}`;
+
+      // 注入 <base>
       if (/<head[^>]*>/i.test(html)) {
-        html = html.replace(/<head[^>]*>/i, (match) => `${match}\n<base href="${proxyOrigin}">`);
+        html = html.replace(/<head[^>]*>/i, (match) => {
+          return `${match}\n<base href="${proxyBaseTag}">`;
+        });
       } else {
-        html = `<head><base href="${proxyOrigin}"></head>\n` + html;
+        html = `<head><base href="${proxyBaseTag}"></head>\n` + html;
       }
 
-      // 2. 注入客户端 Hook 脚本
-      // 在浏览器端拦截 fetch, xhr, window.open 等动态请求
+      // 替换静态 href / src
+      html = html.replace(
+        /(href|src)=["']([^"']+)["']/gi,
+        (match, attr, link) => {
+          if (/^(https?:)?\/\//i.test(link)) {
+            if (link.startsWith("//")) link = baseUrl.protocol + link;
+            return `${attr}="${proxyBase}${encodeURIComponent(link)}"`;
+          } else if (link.startsWith("/")) {
+            return `${attr}="${proxyBase}${encodeURIComponent(baseUrl.origin + link)}"`;
+          } else if (/^(javascript:|#)/i.test(link)) {
+            return match;
+          } else {
+            return `${attr}="${proxyBase}${encodeURIComponent(new URL(link, baseUrl).href)}"`;
+          }
+        }
+      );
+
+      // 替换静态 form action
+      html = html.replace(
+        /<form([^>]*?)action=["']([^"']+)["']([^>]*)>/gi,
+        (match, before, action, after) => {
+          let newAction = action;
+          if (/^(https?:)?\/\//i.test(action)) {
+            if (action.startsWith("//")) action = baseUrl.protocol + action;
+            newAction = `${proxyBase}${encodeURIComponent(action)}`;
+          } else if (action.startsWith("/")) {
+            newAction = `${proxyBase}${encodeURIComponent(baseUrl.origin + action)}`;
+          } else {
+            newAction = `${proxyBase}${encodeURIComponent(new URL(action, baseUrl).href)}`;
+          }
+          return `<form${before}action="${newAction}"${after}>`;
+        }
+      );
+
+      // ===== 注入全局 JS Hook 动态 URL =====
       const hookScript = `
       <script>
         (function(){
           const proxyBase = '${proxyBase}';
-          
-          // 核心函数：将任意 URL 转换为代理 URL
-          function proxify(url) {
-             if (!url) return url;
-             if (typeof url !== 'string') return url;
-             // 忽略特殊协议
-             if (url.match(/^(javascript:|#|data:|blob:|mailto:|tel:)/i)) return url;
-             // 已经代理过了则跳过
-             if (url.includes('/api/proxy?url=')) return url;
-             
-             try {
-                // 利用当前页面的 <base> 解析相对路径
-                const u = new URL(url, document.baseURI);
-                return proxyBase + encodeURIComponent(u.href);
-             } catch(e) { return url; }
+          function proxifyUrl(url) {
+            try {
+              if (!url || url.startsWith('javascript:') || url.startsWith('#')) return url;
+              const u = new URL(url, location.href);
+              return proxyBase + encodeURIComponent(u.href);
+            } catch(e) { return url; }
           }
 
-          // Hook: window.fetch
+          // Hook location
+          const originalAssign = window.location.assign;
+          window.location.assign = function(url){ return originalAssign.call(this, proxifyUrl(url)); };
+          const originalReplace = window.location.replace;
+          window.location.replace = function(url){ return originalReplace.call(this, proxifyUrl(url)); };
+          Object.defineProperty(window.location, 'href', {
+            set: function(url){ originalAssign.call(window.location, proxifyUrl(url)); }
+          });
+
+          // Hook pushState / replaceState
+          const _push = history.pushState;
+          history.pushState = function(s, t, url){ return _push.call(this, s, t, proxifyUrl(url)); };
+          const _replace = history.replaceState;
+          history.replaceState = function(s, t, url){ return _replace.call(this, s, t, proxifyUrl(url)); };
+
+          // 替换 a 标签 href / form action
+          document.addEventListener('DOMContentLoaded', ()=>{
+            document.querySelectorAll('a[href]').forEach(a=>{
+              a.href = proxifyUrl(a.href);
+            });
+            document.querySelectorAll('form[action]').forEach(f=>{
+              f.action = proxifyUrl(f.action);
+            });
+          });
+
+          // Hook fetch
           const _fetch = window.fetch;
-          window.fetch = function(input, init) {
-            if (typeof input === 'string') input = proxify(input);
-            else if (input instanceof Request) {
-                // Request 对象是只读的，需要克隆重建
-                input = new Request(proxify(input.url), input);
-            }
+          window.fetch = function(input, init){
+            if(typeof input === 'string') input = proxifyUrl(input);
+            else if(input instanceof Request) input = new Request(proxifyUrl(input.url), input);
             return _fetch.call(this, input, init);
           };
 
-          // Hook: XMLHttpRequest
+          // Hook XMLHttpRequest open
           const _open = XMLHttpRequest.prototype.open;
-          XMLHttpRequest.prototype.open = function(method, url, ...args) {
-            return _open.call(this, method, proxify(url), ...args);
+          XMLHttpRequest.prototype.open = function(method, url, ...rest){
+            return _open.call(this, method, proxifyUrl(url), ...rest);
           };
-          
-          // Hook: window.open
-          const _winOpen = window.open;
-          window.open = function(url, name, features) {
-             return _winOpen.call(this, proxify(url), name, features);
-          };
-
-          // 兜底：点击链接时强制检查
-          document.addEventListener('click', e => {
-            const a = e.target.closest('a');
-            if(a && a.href) {
-               // 如果是站外链接，或者已经被 base 标签处理过的链接，这里再次确保它走代理
-               // 这里主要处理 JS 动态生成的 A 标签
-               const newHref = proxify(a.href);
-               if(a.href !== newHref) {
-                  e.preventDefault();
-                  window.location.href = newHref;
-               }
-            }
-          }, true);
         })();
       </script>
       `;
 
-      // 将脚本注入到 body 底部
-      html = html.replace("</body>", hookScript + "</body>");
-      
+      html = html.replace(/<\/body>/i, hookScript + "</body>");
+
       res.setHeader("Content-Type", "text/html; charset=utf-8");
       res.send(html);
-    } 
-    
-    // ============================================================
-    // 策略 B: CSS 处理 (替换 url(...))
-    // ============================================================
-    else if (contentType.includes("text/css")) {
+
+      // ===== 处理 CSS =====
+    } else if (contentType.includes("text/css")) {
       let css = await response.text();
-      // CSS 中的相对路径不受 <base> 影响，必须手动替换
-      css = css.replace(/url\((['"]?)([^"')]+)\1\)/gi, (match, quote, url) => {
-        if (url.trim().match(/^(data:|#)/i)) return match;
-        try {
-          const absoluteUrl = new URL(url, targetUrlStr).href;
-          return `url(${proxyBase}${encodeURIComponent(absoluteUrl)})`;
-        } catch(e) { return match; }
+      css = css.replace(/url\(([^)]+)\)/gi, (match, rawUrl) => {
+        let cleanUrl = rawUrl.trim().replace(/^['"]|['"]$/g, "");
+        if (/^(https?:)?\/\//i.test(cleanUrl)) {
+          if (cleanUrl.startsWith("//")) cleanUrl = baseUrl.protocol + cleanUrl;
+          return `url(${proxyBase}${encodeURIComponent(cleanUrl)})`;
+        } else if (cleanUrl.startsWith("/")) {
+          return `url(${proxyBase}${encodeURIComponent(baseUrl.origin + cleanUrl)})`;
+        } else if (cleanUrl.startsWith("data:")) {
+          return match;
+        } else {
+          return `url(${proxyBase}${encodeURIComponent(new URL(cleanUrl, baseUrl).href)})`;
+        }
       });
-      
       res.setHeader("Content-Type", "text/css; charset=utf-8");
       res.send(css);
-    }
 
-    // ============================================================
-    // 策略 C: 其他所有文件 (JS/图片/字体/视频) -> 流式透传
-    // ============================================================
-    else {
-      // 包含 JS 文件：绝对不要修改 JS 内容，否则极易破坏语法。
-      // 依靠上面的 Hook 脚本在运行时处理 JS 发出的请求。
-      
+      // ===== 处理 JS =====
+    } else if (
+      contentType.includes("application/javascript") ||
+      contentType.includes("text/javascript")
+    ) {
+      let js = await response.text();
+      js = js.replace(
+        /fetch\((['"])(.+?)\1\)/gi,
+        (match, quote, link) => {
+          return `fetch(${quote}${proxyBase}${encodeURIComponent(
+            new URL(link, baseUrl).href
+          )}${quote})`;
+        }
+      );
+      js = js.replace(
+        /open\((['"])(GET|POST|PUT|DELETE|HEAD|OPTIONS)\1\s*,\s*(['"])(.+?)\3/gi,
+        (match, q1, method, q2, link) => {
+          return `open(${q1}${method}${q1}, ${q2}${proxyBase}${encodeURIComponent(
+            new URL(link, baseUrl).href
+          )}${q2}`;
+        }
+      );
+      js = js.replace(/url:\s*(['"])(.+?)\1/gi, (match, quote, link) => {
+        return `url: ${quote}${proxyBase}${encodeURIComponent(
+          new URL(link, baseUrl).href
+        )}${quote}`;
+      });
+      res.setHeader("Content-Type", "application/javascript; charset=utf-8");
+      res.send(js);
+
+      // ===== 其他文件直接透传 =====
+    } else {
       res.status(response.status);
-      
-      if (!response.body) {
-        res.end();
-        return;
-      }
-
-      // 使用 Web Streams Reader 进行流式传输，节省内存
+      response.headers.forEach((value, key) => {
+        if (!["content-encoding", "content-length"].includes(key)) {
+          res.setHeader(key, value);
+        }
+      });
       const reader = response.body.getReader();
       while (true) {
         const { done, value } = await reader.read();
@@ -222,9 +243,7 @@ export default async function handler(req, res) {
       }
       res.end();
     }
-
   } catch (err) {
-    console.error("Proxy Error:", err);
-    res.status(502).send(`Proxy Error: ${err.message}`);
+    res.status(502).send(`请求错误：${err.message}`);
   }
 }
