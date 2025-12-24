@@ -123,6 +123,7 @@ export default function Home() {
         <footer style={styles.footer}>
           © 2025 Apple Inc. 版权所有。  
           Apple TV、Apple News 与 F1 为各自商标。
+            皖ICP备2025081222号-1
         </footer>
       </div>
     </div>
