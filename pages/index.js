@@ -1,178 +1,268 @@
-import React, { useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
+import Head from 'next/head';
 
 export default function Home() {
+  const [longUrl, setLongUrl] = useState('');
+  const [shortUrl, setShortUrl] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [view, setView] = useState('home'); // home | admin
+  const [copyBtnText, setCopyBtnText] = useState('一键复制链接');
+  const [copyBtnColor, setCopyBtnColor] = useState('linear-gradient(135deg, #10b981, #059669)');
+
   useEffect(() => {
-    document.title = 'Apple 宣布与 F1 达成五年独家转播协议 - Apple 新闻中心';
-
-    const metaDescription = document.createElement('meta');
-    metaDescription.name = 'description';
-    metaDescription.content =
-      'Apple 宣布自 2026 年起通过 Apple TV 在美国独家播出 F1 赛车，签订五年协议，总价值 7.5 亿美元。';
-    document.head.appendChild(metaDescription);
-
-    const ogTitle = document.createElement('meta');
-    ogTitle.setAttribute('property', 'og:title');
-    ogTitle.content = 'Apple 宣布与 F1 达成五年独家转播协议';
-    document.head.appendChild(ogTitle);
-
-    const ogDesc = document.createElement('meta');
-    ogDesc.setAttribute('property', 'og:description');
-    ogDesc.content =
-      'Apple 将自 2026 年起通过 Apple TV 平台在美国独家播出 F1 赛车赛事。';
-    document.head.appendChild(ogDesc);
-
-    const ogImg = document.createElement('meta');
-    ogImg.setAttribute('property', 'og:image');
-    ogImg.content =
-      'https://www.apple.com/newsroom/images/default/apple-logo-og.jpg';
-    document.head.appendChild(ogImg);
-
-    const favicon = document.createElement('link');
-    favicon.rel = 'icon';
-    favicon.href = 'https://www.apple.com/favicon.ico';
-    document.head.appendChild(favicon);
-
-    return () => {
-      document.head.removeChild(metaDescription);
-      document.head.removeChild(ogTitle);
-      document.head.removeChild(ogDesc);
-      document.head.removeChild(ogImg);
-      document.head.removeChild(favicon);
-    };
+    if (window.location.pathname === '/admin') {
+      setView('admin');
+    }
   }, []);
 
+  const handleGenerate = async () => {
+    if (!longUrl) return;
+    if (!/^https?:\/\//i.test(longUrl)) {
+      alert('请输入包含 http:// 或 https:// 的有效网址');
+      return;
+    }
+
+    setLoading(true);
+    setTimeout(() => {
+      setLoading(false);
+      const array = new Uint32Array(1);
+      window.crypto.getRandomValues(array);
+      const randomCode = array[0].toString(36).slice(0, 6);
+      setShortUrl(`${window.location.origin}/${randomCode}`);
+    }, 800);
+  };
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(shortUrl).then(() => {
+      setCopyBtnText('已复制');
+      setCopyBtnColor('linear-gradient(135deg, #059669, #047857)');
+      setTimeout(() => {
+        setCopyBtnText('一键复制链接');
+        setCopyBtnColor('linear-gradient(135deg, #10b981, #059669)');
+      }, 2000);
+    });
+  };
+
+  const handleAdminLogin = () => {
+    alert("系统维护中，暂时无法登录后台");
+  };
+
   return (
-    <div style={styles.body}>
-      <div style={styles.container}>
-        <h1 style={styles.title}>
-          Apple 正式敲定与一级方程式 F1 赛车达成五年独家转播权协议
-        </h1>
-        <p style={styles.date}>2025 年 10 月 21 日 · Apple 新闻中心</p>
+    <>
+      <Head>
+        <title>Short Link Service</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+      </Head>
 
-        <img
-          src="https://www.apple.com/newsroom/images/default/apple-logo-og.jpg"
-          alt="Apple F1"
-          style={styles.image}
-        />
+      <div className={`container fade-in ${view === 'home' ? 'flex' : 'hidden'}`}>
+        <div className="glass-card">
+          <div className="icon-wrapper">
+            <i className="fa-solid fa-link"></i>
+          </div>
+          <h1>创建短链接</h1>
+          <p className="subtitle">简单、快速、安全的链接缩短服务</p>
 
-        <p style={styles.text}>
-          Apple（苹果公司）正式敲定与一级方程式 F1 赛车（Formula 1）达成五年独家转播权协议，
-          将自 2026 年起通过 Apple TV 平台在美国独家播出 F1 赛事。
-          这项交易总价值约 7.5 亿美元，每年约支付 1.5 亿美元，
-          同时也展现了苹果进军体育转播领域的决心与野心。
-        </p>
+          <div className="input-group">
+            <div className="input-icon"><i className="fa-solid fa-globe"></i></div>
+            <input
+              type="text"
+              value={longUrl}
+              onChange={(e) => setLongUrl(e.target.value)}
+              placeholder="请粘贴您的长链接 (https://...)"
+            />
+          </div>
 
-        <p style={styles.text}>
-          根据苹果与 F1 官方声明，此项合作将让美国 Apple TV 订阅用户无需额外付费，
-          即可观看所有 F1 赛事，包括自由练习、排位赛与正赛等所有场次的实时转播内容，
-          同时还将整合 F1 官方频道 “F1 TV” 所制作的深度节目与数据内容。
-        </p>
+          <button
+            onClick={handleGenerate}
+            className={`btn-primary ${loading ? 'loading' : ''}`}
+            disabled={loading}
+          >
+            {loading ? <i className="fa-solid fa-circle-notch fa-spin"></i> : '立即生成'}
+          </button>
 
-        <p style={styles.text}>
-          这是苹果首次将大型国际赛事纳入自家流媒体平台的订阅服务。
-          虽然此前曾推出美国职业足球大联盟（MLS）转播方案，但需额外付费；
-          此次则首次纳入 Apple TV 标准订阅范围，
-          显示苹果希望通过内容差异化巩固平台订阅用户。
-        </p>
-
-        <img
-          src="https://mrmad.com.tw/wp-content/uploads/2025/10/apple-f1-exclusive-tv-deal-free-us.jpg"
-          alt="F1 Race"
-          style={styles.image}
-        />
-
-        <p style={styles.text}>
-          目前 Apple TV 的 F1 转播相关安排尚未最终确定，
-          预计初期不会自制评论内容，而是考虑采购 F1 TV 或英国 Sky 体育台的转播音轨，
-          以确保内容质量与播出水准。
-        </p>
-
-        <p style={styles.text}>
-          值得注意的是，今年初由布拉德·皮特主演、Apple 出资制作的 F1 主题电影上映后广受好评，
-          全球票房突破 6.3 亿美元，不仅成为史上票房最高的体育电影，
-          也是皮特个人票房最高作品。
-          该片在北美市场显著提升了 F1 的关注度，
-          被视为此次谈判成功的重要推手。
-        </p>
-
-        <p style={styles.text}>
-          Apple 服务事业高级副总裁 Eddy Cue 表示，
-          F1 在美国市场仍有巨大发展潜力：
-          “我们不仅仅是做五年，我们的目标是长期投入，
-          让这项合作成为苹果的重要内容战略之一。”
-        </p>
-
-        <p style={styles.text}>
-          F1 主席 Stefano Domenicali 则表示：
-          “这是一项极具战略意义的合作，
-          能通过苹果横跨新闻、音乐、运动、健身等生态系统平台，
-          全面提升 F1 在美国市场的曝光度与成长潜力。”
-        </p>
-
-        <p style={styles.text}>
-          相比之下，F1 目前与 ESPN 的美国转播权合作每年仅约 8,000 万美元，
-          苹果此举有望为 F1 带来更大的资源投入与观众基础，
-          并重新定义流媒体平台在体育转播市场的竞争格局。
-        </p>
-
-        <p style={styles.text}>
-          至于 Netflix 热门的 F1 纪录片剧集《极速求生》（Drive to Survive）
-          则不受此次协议影响，仍将持续在该平台上线播出。
-        </p>
-
-        <footer style={styles.footer}>
-          © 2025 Apple Inc. 版权所有。  
-          Apple TV、Apple News 与 F1 为各自商标。
-        </footer>
+          {shortUrl && (
+            <div className="result-box slide-up">
+              <div className="result-header">
+                <i className="fa-solid fa-check-circle"></i> 生成成功
+              </div>
+              <a href={shortUrl} target="_blank" rel="noreferrer" className="short-url">{shortUrl}</a>
+              <button
+                onClick={handleCopy}
+                className="btn-copy"
+                style={{ background: copyBtnColor }}
+              >
+                <i className={`fa-solid ${copyBtnText === '已复制' ? 'fa-check' : 'fa-copy'}`}></i> {copyBtnText}
+              </button>
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+
+      <div className={`container fade-in ${view === 'admin' ? 'flex' : 'hidden'}`}>
+        <div className="glass-card small-card">
+          <div className="icon-wrapper admin-icon">
+            <i className="fa-solid fa-shield-halved"></i>
+          </div>
+          <h2>后台登录</h2>
+
+          <div className="input-group">
+            <div className="input-icon"><i className="fa-solid fa-user"></i></div>
+            <input type="text" placeholder="管理员账号" />
+          </div>
+          <div className="input-group">
+            <div className="input-icon"><i className="fa-solid fa-lock"></i></div>
+            <input type="password" placeholder="为了安全请输入密码" />
+          </div>
+
+          <button onClick={handleAdminLogin} className="btn-primary" style={{ marginTop: '10px' }}>
+            登录系统
+          </button>
+        </div>
+      </div>
+
+      <div className="footer">
+        <a href="https://beian.miit.gov.cn/" target="_blank" rel="noreferrer">
+          ICP备案号：皖ICP备2025081222号
+        </a>
+      </div>
+
+      <style jsx global>{`
+        :root {
+          --primary-gradient: linear-gradient(135deg, #6366f1, #a855f7);
+          --glass-bg: rgba(255, 255, 255, 0.8);
+          --glass-border: rgba(0, 0, 0, 0.05);
+          --text-color: #1f2937;
+          --text-secondary: #6b7280;
+        }
+
+        body { 
+          font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; 
+          margin: 0; 
+          color: var(--text-color);
+          background: #ffffff;
+        }
+        
+        .container { 
+          display: flex; 
+          flex-direction: column;
+          justify-content: center; 
+          align-items: center; 
+          min-height: calc(100vh - 60px); 
+          padding: 20px; 
+          box-sizing: border-box;
+        }
+        
+        .hidden { display: none; }
+        .flex { display: flex; }
+
+        /* Card */
+        .glass-card {
+          background: var(--glass-bg);
+          border: 1px solid var(--glass-border);
+          border-radius: 24px;
+          padding: 3rem 2.5rem;
+          width: 100%;
+          max-width: 480px;
+          box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04);
+          text-align: center;
+          transition: transform 0.3s ease;
+        }
+        .glass-card:hover {
+          transform: translateY(-5px);
+        }
+        .small-card { max-width: 360px; padding: 2.5rem 2rem; }
+
+        .icon-wrapper {
+          width: 64px; height: 64px;
+          background: var(--primary-gradient);
+          border-radius: 50%;
+          display: flex; align-items: center; justify-content: center;
+          margin: 0 auto 1.5rem;
+          color: white; font-size: 28px;
+          box-shadow: 0 10px 20px rgba(99, 102, 241, 0.2);
+        }
+        .admin-icon { background: linear-gradient(135deg, #3b82f6, #06b6d4); box-shadow: 0 10px 20px rgba(6, 182, 212, 0.3); }
+
+        h1 { margin: 0 0 10px 0; font-size: 28px; font-weight: 800; letter-spacing: -0.5px; background: var(--primary-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        h2 { margin: 0 0 25px 0; font-size: 24px; font-weight: 700; }
+        .subtitle { color: var(--text-secondary); margin-bottom: 30px; font-size: 15px; }
+
+        /* Inputs */
+        .input-group { position: relative; margin-bottom: 20px; text-align: left; width: 100%; }
+        .input-icon { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: #9ca3af; pointer-events: none; z-index: 2;}
+        input { 
+          width: 100%; 
+          padding: 16px 16px 16px 48px; 
+          border: 1.5px solid #e5e7eb; 
+          border-radius: 16px; 
+          font-size: 15px; 
+          background: #f9fafb; 
+          transition: all 0.3s ease;
+          outline: none;
+          color: var(--text-color);
+          box-sizing: border-box;
+        }
+        input:focus { border-color: #6366f1; background: white; box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.05); }
+        input::placeholder { color: #9ca3af; }
+
+        /* Buttons */
+        .btn-primary { 
+          width: 100%; 
+          padding: 16px; 
+          border: none; 
+          border-radius: 16px; 
+          background: var(--primary-gradient); 
+          color: white; 
+          font-size: 16px; font-weight: 700; 
+          cursor: pointer; 
+          transition: all 0.3s; 
+          box-shadow: 0 8px 16px rgba(99, 102, 241, 0.2);
+          position: relative; overflow: hidden;
+        }
+        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 12px 20px rgba(99, 102, 241, 0.25); }
+        .loading { opacity: 0.8; cursor: wait; }
+
+        /* Result Area */
+        .result-box { 
+          margin-top: 25px; 
+          padding: 20px; 
+          background: #f0fdf4; 
+          border: 1px solid #dcfce7; 
+          border-radius: 16px; 
+          text-align: left; 
+        }
+        .result-header { color: #166534; font-weight: 700; font-size: 14px; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+        .short-url { 
+          display: block; 
+          font-size: 16px; font-weight: 700; color: #111827; 
+          text-decoration: none; word-break: break-all; margin-bottom: 15px; 
+          padding: 12px; background: white; border: 1px solid #e5e7eb; border-radius: 12px;
+        }
+        .btn-copy { 
+          width: 100%; padding: 12px; border: none; border-radius: 12px; 
+          color: white; font-weight: 600; font-size: 14px; cursor: pointer; 
+          transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px;
+        }
+        .btn-copy:hover { opacity: 0.9; }
+
+        /* Footer */
+        .footer { padding: 20px; text-align: center; border-top: 1px solid #f3f4f6; }
+        .footer a { color: #9ca3af; text-decoration: none; font-size: 12px; transition: 0.2s; }
+        .footer a:hover { color: var(--text-color); }
+
+        /* Animations */
+        .fade-in { animation: fadeIn 0.6s ease-out forwards; opacity: 0; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .slide-up { animation: slideUp 0.4s ease-out; }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+        @media (max-width: 480px) {
+          .glass-card { padding: 2rem 1.5rem; }
+          h1 { font-size: 24px; }
+        }
+      `}</style>
+    </>
   );
 }
-
-const styles = {
-  body: {
-    backgroundColor: '#fafafa',
-    color: '#333',
-    fontFamily:
-      '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif',
-    padding: '20px',
-    display: 'flex',
-    justifyContent: 'center',
-  },
-  container: {
-    maxWidth: '800px',
-    background: '#fff',
-    borderRadius: '12px',
-    boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
-    padding: '30px',
-  },
-  title: {
-    fontSize: '28px',
-    fontWeight: 600,
-    color: '#000',
-    marginBottom: '10px',
-  },
-  date: {
-    color: '#666',
-    fontSize: '14px',
-    marginBottom: '20px',
-  },
-  image: {
-    width: '100%',
-    borderRadius: '10px',
-    margin: '20px 0',
-  },
-  text: {
-    lineHeight: 1.8,
-    fontSize: '17px',
-    marginBottom: '15px',
-  },
-  footer: {
-    borderTop: '1px solid #ddd',
-    marginTop: '30px',
-    paddingTop: '15px',
-    fontSize: '14px',
-    color: '#777',
-    textAlign: 'center',
-  },
-};
